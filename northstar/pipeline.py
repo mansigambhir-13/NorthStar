@@ -49,12 +49,38 @@ class PipelineManager:
 
     def _get_llm_client(self) -> Any:
         if self._llm_client is None:
-            api_key = os.environ.get("ANTHROPIC_API_KEY")
-            if api_key:
+            anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+            groq_key = os.environ.get("GROQ_API_KEY")
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+            if anthropic_key:
                 from northstar.integrations.llm import LLMClient
 
                 self._llm_client = LLMClient(
                     model=self.config.llm.model,
+                    temperature=self.config.llm.temperature,
+                    max_tokens=self.config.llm.max_tokens,
+                    cache_enabled=self.config.llm.cache_enabled,
+                    cache_ttl=self.config.llm.cache_ttl_seconds,
+                )
+            elif groq_key:
+                from northstar.integrations.llm import OpenAICompatibleClient
+
+                self._llm_client = OpenAICompatibleClient(
+                    endpoint="https://api.groq.com/openai/v1/chat/completions",
+                    api_key=groq_key,
+                    model="llama-3.3-70b-versatile",
+                    temperature=self.config.llm.temperature,
+                    max_tokens=self.config.llm.max_tokens,
+                    cache_enabled=self.config.llm.cache_enabled,
+                    cache_ttl=self.config.llm.cache_ttl_seconds,
+                )
+            elif openrouter_key:
+                from northstar.integrations.llm import OpenAICompatibleClient
+
+                self._llm_client = OpenAICompatibleClient(
+                    endpoint="https://openrouter.ai/api/v1/chat/completions",
+                    api_key=openrouter_key,
+                    model="anthropic/claude-sonnet-4",
                     temperature=self.config.llm.temperature,
                     max_tokens=self.config.llm.max_tokens,
                     cache_enabled=self.config.llm.cache_enabled,

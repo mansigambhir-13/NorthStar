@@ -94,9 +94,14 @@ class NorthStarAgent:
         self._state_manager = StateManager(db_path=db_path, context_path=context_path)
         await self._state_manager.__aenter__()
 
-        # NorthStar LLM client (for deterministic engine calls)
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if api_key and not self.fallback:
+        # Determine which LLM backend to use
+        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+        groq_key = os.environ.get("GROQ_API_KEY")
+        openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+        self._use_compatible_api = bool(groq_key or openrouter_key) and not anthropic_key
+
+        # NorthStar LLM client (for deterministic engine calls + agent chat)
+        if not self.fallback and anthropic_key:
             from northstar.integrations.llm import LLMClient
 
             self._llm_client = LLMClient(
@@ -106,6 +111,32 @@ class NorthStarAgent:
                 cache_enabled=self._config.llm.cache_enabled,
                 cache_ttl=self._config.llm.cache_ttl_seconds,
             )
+        elif not self.fallback and groq_key:
+            from northstar.integrations.llm import OpenAICompatibleClient
+
+            self._llm_client = OpenAICompatibleClient(
+                endpoint="https://api.groq.com/openai/v1/chat/completions",
+                api_key=groq_key,
+                model="llama-3.3-70b-versatile",
+                temperature=self._config.llm.temperature,
+                max_tokens=self._config.llm.max_tokens,
+                cache_enabled=self._config.llm.cache_enabled,
+                cache_ttl=self._config.llm.cache_ttl_seconds,
+            )
+            logger.info("Using Groq LLM backend")
+        elif not self.fallback and openrouter_key:
+            from northstar.integrations.llm import OpenAICompatibleClient
+
+            self._llm_client = OpenAICompatibleClient(
+                endpoint="https://openrouter.ai/api/v1/chat/completions",
+                api_key=openrouter_key,
+                model="anthropic/claude-sonnet-4",
+                temperature=self._config.llm.temperature,
+                max_tokens=self._config.llm.max_tokens,
+                cache_enabled=self._config.llm.cache_enabled,
+                cache_ttl=self._config.llm.cache_ttl_seconds,
+            )
+            logger.info("Using OpenRouter LLM backend")
         else:
             from northstar.integrations.llm import NullLLMClient
 
@@ -120,10 +151,16 @@ class NorthStarAgent:
             llm_client=self._llm_client,
         )
 
-        # Build Strands agent (skip if strands not available or in fallback mode)
+        # Build agent:
+        # 1. If Groq/OpenRouter key → use direct LLM chat (no Strands needed)
+        # 2. If Anthropic key + Strands → use Strands agent
+        # 3. Otherwise → fallback
         if self.fallback:
-            logger.info("Skipping Strands agent build (fallback mode)")
+            logger.info("Skipping agent build (fallback mode)")
             self._agent = self._fallback_agent
+        elif self._use_compatible_api:
+            logger.info("Using OpenAI-compatible agent (direct LLM)")
+            self._agent = self._openrouter_agent
         elif not _STRANDS_AVAILABLE:
             logger.warning("Strands SDK unavailable, using fallback: %s", _STRANDS_IMPORT_ERROR)
             self._agent = self._fallback_agent
@@ -153,11 +190,18 @@ class NorthStarAgent:
             tools=ALL_TOOLS,
         )
 
+    async def _openrouter_agent(self, prompt: str) -> str:
+        """Agent backed by OpenRouter — direct LLM chat with system prompt."""
+        return await self._llm_client.query(
+            prompt=prompt,
+            system=NORTHSTAR_AGENT_SYSTEM_PROMPT,
+        )
+
     @staticmethod
-    def _fallback_agent(prompt: str) -> str:
-        """Fallback when Strands is unavailable — returns a helpful message."""
+    async def _fallback_agent(prompt: str) -> str:
+        """Fallback when no LLM backend is available."""
         return (
-            "[NorthStar fallback mode] Agent is running without Strands SDK. "
+            "[NorthStar fallback mode] Agent is running without an LLM backend. "
             "Deterministic engines are available via CLI commands "
             "(northstar analyze, northstar check, etc.). "
             f"Your query: {prompt[:200]}"
@@ -175,12 +219,21 @@ class NorthStarAgent:
 
     # ── Public methods ────────────────────────────────────────────────
 
+    async def _call_agent(self, prompt: str) -> str:
+        """Call the agent (handles both sync Strands and async OpenRouter/fallback)."""
+        import asyncio
+        import inspect
+
+        result = self._agent(prompt)
+        if inspect.isawaitable(result):
+            return str(await result)
+        return str(result)
+
     async def analyze(self) -> str:
         """Run a full agentic priority analysis."""
         self._ensure_ready()
         try:
-            response = self._agent(FULL_ANALYSIS_PROMPT)
-            return str(response)
+            return await self._call_agent(FULL_ANALYSIS_PROMPT)
         except Exception as e:
             logger.error("Agent analyze failed: %s", e)
             raise AgentError(f"Analysis failed: {e}") from e
@@ -189,8 +242,7 @@ class NorthStarAgent:
         """Quick priority check — PDS and top recommendation."""
         self._ensure_ready()
         try:
-            response = self._agent(QUICK_CHECK_PROMPT)
-            return str(response)
+            return await self._call_agent(QUICK_CHECK_PROMPT)
         except Exception as e:
             logger.error("Agent quick_check failed: %s", e)
             raise AgentError(f"Quick check failed: {e}") from e
@@ -199,8 +251,7 @@ class NorthStarAgent:
         """Check for drift from high-leverage work."""
         self._ensure_ready()
         try:
-            response = self._agent(DRIFT_CHECK_PROMPT)
-            return str(response)
+            return await self._call_agent(DRIFT_CHECK_PROMPT)
         except Exception as e:
             logger.error("Agent drift_check failed: %s", e)
             raise AgentError(f"Drift check failed: {e}") from e
@@ -209,8 +260,7 @@ class NorthStarAgent:
         """Send an arbitrary message to the agent and get a response."""
         self._ensure_ready()
         try:
-            response = self._agent(message)
-            return str(response)
+            return await self._call_agent(message)
         except Exception as e:
             logger.error("Agent chat failed: %s", e)
             raise AgentError(f"Chat failed: {e}") from e

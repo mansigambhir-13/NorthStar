@@ -133,6 +133,130 @@ class LLMClient:
             self._client = None
 
 
+class OpenAICompatibleClient:
+    """LLM client for any OpenAI-compatible API (OpenRouter, Groq, etc.)."""
+
+    def __init__(
+        self,
+        endpoint: str,
+        api_key: str,
+        model: str = "llama-3.3-70b-versatile",
+        temperature: float = 0.0,
+        max_tokens: int = 4096,
+        max_retries: int = 3,
+        cache_enabled: bool = True,
+        cache_ttl: int = 3600,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
+        self.endpoint = endpoint
+        self._api_key = api_key
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.max_retries = max_retries
+        self.cache_enabled = cache_enabled
+        self.cache_ttl = cache_ttl
+        self._extra_headers = extra_headers or {}
+        self._cache: dict[str, tuple[float, Any]] = {}
+        self._client: Any = None
+
+    async def _get_client(self) -> Any:
+        if self._client is None:
+            import httpx
+
+            headers = {
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+                **self._extra_headers,
+            }
+            self._client = httpx.AsyncClient(headers=headers, timeout=60.0)
+        return self._client
+
+    def _cache_key(self, prompt: str, system: str = "") -> str:
+        content = f"{self.model}:{self.temperature}:{system}:{prompt}"
+        return hashlib.sha256(content.encode()).hexdigest()
+
+    def _get_cached(self, key: str) -> Any | None:
+        if not self.cache_enabled or key not in self._cache:
+            return None
+        timestamp, value = self._cache[key]
+        if time.time() - timestamp > self.cache_ttl:
+            del self._cache[key]
+            return None
+        return value
+
+    def _set_cached(self, key: str, value: Any) -> None:
+        if self.cache_enabled:
+            self._cache[key] = (time.time(), value)
+
+    async def query(self, prompt: str, system: str = "", parse_json: bool = False) -> Any:
+        """Send a prompt and return the response text (or parsed JSON)."""
+        cache_key = self._cache_key(prompt, system)
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            return cached
+
+        client = await self._get_client()
+        last_error: Exception | None = None
+
+        for attempt in range(self.max_retries):
+            try:
+                messages: list[dict[str, str]] = []
+                if system:
+                    messages.append({"role": "system", "content": system})
+                messages.append({"role": "user", "content": prompt})
+
+                payload = {
+                    "model": self.model,
+                    "max_tokens": self.max_tokens,
+                    "temperature": self.temperature,
+                    "messages": messages,
+                }
+
+                response = await client.post(self.endpoint, json=payload)
+                response.raise_for_status()
+                data = response.json()
+
+                text = data["choices"][0]["message"]["content"]
+
+                if parse_json:
+                    text = text.strip()
+                    if text.startswith("```"):
+                        lines = text.split("\n")
+                        text = "\n".join(lines[1:-1]) if len(lines) > 2 else text
+                    result = json.loads(text)
+                else:
+                    result = text
+
+                self._set_cached(cache_key, result)
+                return result
+
+            except json.JSONDecodeError as e:
+                raise LLMError(f"Failed to parse LLM response as JSON: {e}") from e
+            except Exception as e:
+                last_error = e
+                if attempt < self.max_retries - 1:
+                    wait = 2 ** (attempt + 1)
+                    logger.warning(
+                        "API request failed (attempt %d), retrying in %ds: %s",
+                        attempt + 1, wait, e,
+                    )
+                    import asyncio
+
+                    await asyncio.sleep(wait)
+
+        raise LLMError(f"API request failed after {self.max_retries} attempts: {last_error}")
+
+    async def close(self) -> None:
+        if self._client is not None:
+            await self._client.aclose()
+            self._client = None
+
+
+# Convenience alias for backwards compatibility
+OpenRouterClient = OpenAICompatibleClient
+
+
 class NullLLMClient:
     """Offline/testing LLM client that returns sensible defaults."""
 
