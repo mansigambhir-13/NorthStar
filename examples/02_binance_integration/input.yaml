@@ -1,0 +1,85 @@
+goals:
+  - id: g1
+    title: "API reliability"
+    description: "Maintain 99.9% uptime on Binance API connectivity"
+    priority: 1
+    success_criteria:
+      - "API connector handles rate limits gracefully"
+      - "Automatic reconnection on WebSocket drops"
+      - "All API errors logged with context"
+  - id: g2
+    title: "Order execution"
+    description: "Execute trades accurately with sub-second latency"
+    priority: 2
+    success_criteria:
+      - "Market and limit orders execute correctly"
+      - "Order state machine handles all edge cases"
+      - "Fills are reconciled within 5 seconds"
+  - id: g3
+    title: "Risk management"
+    description: "Prevent catastrophic losses through automated safeguards"
+    priority: 1
+    success_criteria:
+      - "Position size limits enforced"
+      - "Daily loss limit triggers automatic shutdown"
+      - "All risk events logged and alerted"
+
+tasks:
+  - id: t1
+    title: "Binance API connector"
+    description: "REST and WebSocket client with auth, rate limiting, and retry logic"
+    goal_id: g1
+    goal_alignment: 0.95
+    impact: 95
+    urgency: blocking
+    effort_hours: 6
+    blocks: [t2, t3, t4, t7]
+  - id: t2
+    title: "Order execution engine"
+    description: "State machine for order lifecycle: create, fill, partial, cancel"
+    goal_id: g2
+    goal_alignment: 0.9
+    impact: 90
+    urgency: deadline_1w
+    effort_hours: 10
+    blocks: [t3, t5]
+  - id: t3
+    title: "Risk limit enforcement"
+    description: "Position sizing, daily P&L limits, and circuit breakers"
+    goal_id: g3
+    goal_alignment: 0.95
+    impact: 95
+    urgency: deadline_1w
+    effort_hours: 8
+  - id: t4
+    title: "WebSocket market data feed"
+    description: "Real-time orderbook and trade stream processing"
+    goal_id: g1
+    goal_alignment: 0.8
+    impact: 80
+    urgency: deadline_1w
+    effort_hours: 5
+  - id: t5
+    title: "Backtesting framework"
+    description: "Historical data replay engine for strategy validation"
+    goal_id: g2
+    goal_alignment: 0.4
+    impact: 40
+    urgency: normal
+    effort_hours: 15
+  - id: t6
+    title: "Trading UI dashboard"
+    description: "Web dashboard showing positions, P&L, and order history"
+    goal_id: g2
+    goal_alignment: 0.3
+    impact: 25
+    urgency: normal
+    effort_hours: 20
+  - id: t7
+    title: "Monitoring and alerting"
+    description: "Prometheus metrics, Grafana dashboards, PagerDuty alerts"
+    goal_id: g1
+    goal_alignment: 0.7
+    impact: 70
+    urgency: normal
+    effort_hours: 8

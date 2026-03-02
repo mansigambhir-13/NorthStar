@@ -1,0 +1,79 @@
+goals:
+  - id: g1
+    title: "User growth"
+    description: "Acquire and activate 1000 users in the first quarter"
+    priority: 1
+    success_criteria:
+      - "Onboarding flow converts 60% of signups to activated users"
+      - "Referral program drives 20% of new signups"
+      - "Time-to-value under 5 minutes"
+  - id: g2
+    title: "Revenue"
+    description: "Reach $10K MRR by end of quarter"
+    priority: 2
+    success_criteria:
+      - "Pricing page converts 5% of free users to paid"
+      - "Billing handles upgrades, downgrades, and cancellations"
+      - "Churn rate below 5% monthly"
+
+tasks:
+  - id: t1
+    title: "Onboarding flow"
+    description: "Guided first-run experience with progress indicators"
+    goal_id: g1
+    goal_alignment: 0.95
+    impact: 90
+    urgency: deadline_1w
+    effort_hours: 6
+    blocks: [t3, t5]
+  - id: t2
+    title: "Pricing page"
+    description: "Feature comparison, plan selector, and CTA buttons"
+    goal_id: g2
+    goal_alignment: 0.85
+    impact: 80
+    urgency: deadline_1w
+    effort_hours: 4
+    blocks: [t4]
+  - id: t3
+    title: "Referral program"
+    description: "Invite-a-friend with reward tracking and viral loops"
+    goal_id: g1
+    goal_alignment: 0.8
+    impact: 70
+    urgency: normal
+    effort_hours: 8
+  - id: t4
+    title: "Billing integration"
+    description: "Stripe subscription management with webhook handling"
+    goal_id: g2
+    goal_alignment: 0.9
+    impact: 85
+    urgency: deadline_1w
+    effort_hours: 10
+  - id: t5
+    title: "Analytics dashboard"
+    description: "User engagement metrics, funnel visualization, cohort analysis"
+    goal_id: g1
+    goal_alignment: 0.5
+    impact: 50
+    urgency: normal
+    effort_hours: 12
+  - id: t6
+    title: "Customer support portal"
+    description: "Help center, ticket system, and live chat widget"
+    goal_id: g1
+    goal_alignment: 0.4
+    impact: 35
+    urgency: normal
+    effort_hours: 10
+    # Serves both goals: retains users (g1) and reduces churn (g2)
+  - id: t7
+    title: "A/B testing framework"
+    description: "Feature flag system with statistical significance calculations"
+    goal_id: g1
+    goal_alignment: 0.35
+    impact: 30
+    urgency: normal
+    effort_hours: 8
+    # Serves both goals: optimizes onboarding (g1) and pricing (g2)

@@ -1,0 +1,24 @@
+# NorthStar Development Rules
+
+## Code Style
+- Python 3.10+ with type hints throughout
+- Use async/await for all I/O operations
+- Pydantic v2 models with ConfigDict(from_attributes=True)
+- Keep functions focused and under 50 lines where possible
+
+## Architecture
+- All engines are async classes with clear single responsibilities
+- State persistence through StateManager only (no direct SQLite access)
+- LLM calls always go through LLMClient/NullLLMClient abstraction
+- CLI commands use asyncio.run() bridge pattern
+
+## Testing
+- Every module has corresponding tests in tests/unit/
+- Use NullLLMClient for all unit tests (no real API calls)
+- Use tmp_path fixture for filesystem tests
+- pytest with asyncio_mode="auto"
+
+## Priority Stack
+- Focus on correctness of scoring formulas first
+- Drift detection thresholds must match config exactly
+- All models must support JSON round-trip serialization

@@ -1,0 +1,66 @@
+goals:
+  - id: g1
+    title: "Launch MVP to first 10 users"
+    description: "Ship core e-commerce functionality"
+    priority: 1
+    success_criteria:
+      - "Users can sign up and log in"
+      - "Users can browse products"
+      - "Users can complete a purchase"
+      - "Deployed to production"
+  - id: g2
+    title: "Payment processing"
+    description: "Integrate Stripe for payments"
+    priority: 2
+
+tasks:
+  - id: t1
+    title: "Build user authentication"
+    goal_id: g1
+    goal_alignment: 0.95
+    impact: 90
+    urgency: blocking
+    effort_hours: 4
+    blocks: [t2, t3, t4]
+  - id: t2
+    title: "Product catalog page"
+    goal_id: g1
+    goal_alignment: 0.8
+    impact: 75
+    urgency: normal
+    effort_hours: 6
+  - id: t3
+    title: "Shopping cart"
+    goal_id: g1
+    goal_alignment: 0.85
+    impact: 80
+    urgency: deadline_1w
+    effort_hours: 5
+  - id: t4
+    title: "Stripe payment integration"
+    goal_id: g2
+    goal_alignment: 0.9
+    impact: 85
+    urgency: deadline_1w
+    effort_hours: 8
+  - id: t5
+    title: "SEO optimization"
+    goal_id: g1
+    goal_alignment: 0.2
+    impact: 20
+    urgency: normal
+    effort_hours: 3
+  - id: t6
+    title: "Email notification system"
+    goal_id: g1
+    goal_alignment: 0.3
+    impact: 25
+    urgency: normal
+    effort_hours: 4
+  - id: t7
+    title: "Admin dashboard"
+    goal_id: g1
+    goal_alignment: 0.4
+    impact: 30
+    urgency: normal
+    effort_hours: 10
