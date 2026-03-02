@@ -31,3 +31,7 @@ class ConfigError(NorthStarError):
 
 class DriftError(NorthStarError):
     """Error in drift detection."""
+
+
+class AgentError(NorthStarError):
+    """Error in agent execution."""

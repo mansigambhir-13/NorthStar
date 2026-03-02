@@ -1,7 +1,7 @@
-.PHONY: install test lint format run benchmark demo clean
+.PHONY: install test lint format run benchmark demo clean serve
 
 install:
-	pip install -e ".[dev]"
+	pip install -e ".[dev,web]"
 
 test:
 	pytest tests/ -v
@@ -22,6 +22,9 @@ benchmark:
 
 demo:
 	python benchmarks/run_demos.py --demo
+
+serve:
+	northstar serve
 
 clean:
 	rm -rf build/ dist/ *.egg-info/ .pytest_cache/ __pycache__/

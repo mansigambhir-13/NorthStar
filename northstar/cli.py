@@ -10,8 +10,10 @@ from typing import Optional
 
 import typer
 from rich.console import Console
+from rich.panel import Panel
 
 from northstar import __version__
+from northstar.exceptions import NorthStarError
 
 app = typer.Typer(
     name="northstar",
@@ -23,7 +25,14 @@ console = Console()
 
 def _run(coro):  # type: ignore[no-untyped-def]
     """Bridge async coroutines to sync Typer commands."""
-    return asyncio.run(coro)
+    try:
+        return asyncio.run(coro)
+    except NorthStarError as e:
+        console.print(Panel(str(e), title="NorthStar Error", border_style="red"))
+        raise typer.Exit(code=1) from None
+    except KeyboardInterrupt:
+        console.print("\n[dim]Interrupted.[/dim]")
+        raise typer.Exit(code=130) from None
 
 
 def version_callback(value: bool) -> None:
@@ -241,12 +250,13 @@ def agent(
     mode: str = typer.Argument("analyze", help="Agent mode: analyze, check, drift, or chat"),
     message: Optional[str] = typer.Option(None, "--message", "-m", help="Message for chat mode"),
     model: Optional[str] = typer.Option(None, "--model", help="Override LLM model ID"),
+    fallback: bool = typer.Option(False, "--fallback", help="Use offline fallback (no API key needed)"),
 ) -> None:
     """Run the agentic priority strategist (powered by Strands Agents)."""
     from northstar.agent import NorthStarAgent
 
     async def _agent() -> None:
-        async with NorthStarAgent(model_id=model) as ns_agent:
+        async with NorthStarAgent(model_id=model, fallback=fallback) as ns_agent:
             if mode == "analyze":
                 result = await ns_agent.analyze()
             elif mode == "check":
@@ -264,6 +274,27 @@ def agent(
             console.print(result)
 
     _run(_agent())
+
+
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host"),
+    port: int = typer.Option(8765, "--port", "-p", help="Bind port"),
+) -> None:
+    """Launch the NorthStar web dashboard."""
+    try:
+        import uvicorn
+    except ImportError:
+        console.print(
+            "[red]Web dependencies not installed. Run: pip install northstar[web][/red]"
+        )
+        raise typer.Exit(code=1) from None
+
+    from northstar.web.server import create_app
+
+    app_instance = create_app()
+    console.print(f"[green]NorthStar dashboard starting at http://{host}:{port}[/green]")
+    uvicorn.run(app_instance, host=host, port=port, log_level="info")
 
 
 @app.command()

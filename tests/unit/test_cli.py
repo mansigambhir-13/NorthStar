@@ -70,9 +70,15 @@ class TestCLIHelp:
         assert result.exit_code == 0
         assert "--yes" in result.output
 
-    def test_all_11_commands_present(self) -> None:
+    def test_all_commands_present(self) -> None:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        commands = ["init", "analyze", "status", "check", "rank", "tasks", "log", "report", "config", "export", "reset"]
+        commands = ["init", "analyze", "status", "check", "rank", "tasks", "log", "report", "config", "export", "reset", "agent", "serve"]
         for cmd in commands:
             assert cmd in result.output, f"Command '{cmd}' missing from help output"
+
+    def test_serve_help(self) -> None:
+        result = runner.invoke(app, ["serve", "--help"])
+        assert result.exit_code == 0
+        assert "--host" in result.output
+        assert "--port" in result.output

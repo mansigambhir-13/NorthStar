@@ -153,8 +153,10 @@ class PipelineManager:
 
                 cursor = CursorIntegration(project_root=self.project_root)
                 cursor.update_cursorrules(pds=pds, stack=stack, goals=context.goals)
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+
+                logging.getLogger(__name__).debug("Cursor integration skipped: %s", e)
 
             display = _format_analysis(pds, stack, gaps)
             return {

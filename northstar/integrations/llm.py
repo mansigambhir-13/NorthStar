@@ -45,8 +45,20 @@ class LLMClient:
                     raise LLMError("ANTHROPIC_API_KEY environment variable is not set")
                 self._client = anthropic.AsyncAnthropic(api_key=api_key)
             except ImportError:
-                raise LLMError("anthropic package is not installed")
+                raise LLMError(
+                    "anthropic package is not installed. "
+                    "Install with: pip install 'anthropic>=0.25.0'"
+                )
         return self._client
+
+    @property
+    def is_available(self) -> bool:
+        """Check if the LLM client can be used (API key present, package installed)."""
+        try:
+            import anthropic  # noqa: F401
+            return bool(os.environ.get("ANTHROPIC_API_KEY"))
+        except ImportError:
+            return False
 
     def _cache_key(self, prompt: str, system: str = "") -> str:
         content = f"{self.model}:{self.temperature}:{system}:{prompt}"

@@ -14,7 +14,14 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from strands import tool
+try:
+    from strands import tool
+except ImportError:
+    # Provide a no-op decorator so tools.py can be imported without strands
+    def tool(fn):  # type: ignore[misc]
+        """Fallback decorator when strands is not installed."""
+        fn.__wrapped__ = fn
+        return fn
 
 logger = logging.getLogger(__name__)
 
@@ -126,30 +133,34 @@ async def rank_tasks() -> str:
     if sm is None:
         return json.dumps({"error": "State manager not initialized"})
 
-    from northstar.analysis.leverage_ranker import LeverageRanker
+    try:
+        from northstar.analysis.leverage_ranker import LeverageRanker
 
-    ctx = await sm.load_context()
-    if ctx is None:
-        return json.dumps({"error": "No context. Run 'northstar init' first."})
+        ctx = await sm.load_context()
+        if ctx is None:
+            return json.dumps({"error": "No context. Run 'northstar init' first."})
 
-    tasks = await sm.get_tasks()
-    ranker = LeverageRanker(config=cfg.scoring, llm_client=llm)
-    stack = await ranker.rank(tasks, ctx.goals)
+        tasks = await sm.get_tasks()
+        ranker = LeverageRanker(config=cfg.scoring, llm_client=llm)
+        stack = await ranker.rank(tasks, ctx.goals)
 
-    # Persist updated scores
-    for task in stack.tasks:
-        await sm.save_task(task)
+        # Persist updated scores
+        for task in stack.tasks:
+            await sm.save_task(task)
 
-    top = [
-        {
-            "rank": i,
-            "title": t.title,
-            "leverage_score": round(t.leverage_score, 1),
-            "reasoning": t.reasoning,
-        }
-        for i, t in enumerate(stack.tasks[:10], 1)
-    ]
-    return json.dumps({"ranked_tasks": top, "total": len(stack.tasks)}, indent=2)
+        top = [
+            {
+                "rank": i,
+                "title": t.title,
+                "leverage_score": round(t.leverage_score, 1),
+                "reasoning": t.reasoning,
+            }
+            for i, t in enumerate(stack.tasks[:10], 1)
+        ]
+        return json.dumps({"ranked_tasks": top, "total": len(stack.tasks)}, indent=2)
+    except Exception as e:
+        logger.error("rank_tasks failed: %s", e)
+        return json.dumps({"error": f"Ranking failed: {e}"})
 
 
 @tool
@@ -167,31 +178,35 @@ async def calculate_pds() -> str:
     if sm is None:
         return json.dumps({"error": "State manager not initialized"})
 
-    from northstar.analysis.priority_debt import PriorityDebtCalculator
+    try:
+        from northstar.analysis.priority_debt import PriorityDebtCalculator
 
-    tasks = await sm.get_tasks()
-    calc = PriorityDebtCalculator(llm_client=llm)
-    pds = await calc.calculate(tasks)
-    await sm.save_pds(pds)
+        tasks = await sm.get_tasks()
+        calc = PriorityDebtCalculator(llm_client=llm)
+        pds = await calc.calculate(tasks)
+        await sm.save_pds(pds)
 
-    return json.dumps(
-        {
-            "score": round(pds.score, 2),
-            "severity": pds.severity,
-            "diagnosis": pds.diagnosis,
-            "top_contributors": [
-                {
-                    "task": c.task_title,
-                    "leverage": round(c.leverage_score, 1),
-                    "days_undone": c.days_undone,
-                    "debt": round(c.debt_contribution, 2),
-                }
-                for c in pds.top_contributors
-            ],
-            "recommendations": pds.recommendations,
-        },
-        indent=2,
-    )
+        return json.dumps(
+            {
+                "score": round(pds.score, 2),
+                "severity": pds.severity,
+                "diagnosis": pds.diagnosis,
+                "top_contributors": [
+                    {
+                        "task": c.task_title,
+                        "leverage": round(c.leverage_score, 1),
+                        "days_undone": c.days_undone,
+                        "debt": round(c.debt_contribution, 2),
+                    }
+                    for c in pds.top_contributors
+                ],
+                "recommendations": pds.recommendations,
+            },
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("calculate_pds failed: %s", e)
+        return json.dumps({"error": f"PDS calculation failed: {e}"})
 
 
 @tool
@@ -209,30 +224,34 @@ async def analyze_gaps() -> str:
     if sm is None:
         return json.dumps({"error": "State manager not initialized"})
 
-    from northstar.analysis.gap_analyzer import GapAnalyzer
+    try:
+        from northstar.analysis.gap_analyzer import GapAnalyzer
 
-    ctx = await sm.load_context()
-    if ctx is None:
-        return json.dumps({"error": "No context. Run 'northstar init' first."})
+        ctx = await sm.load_context()
+        if ctx is None:
+            return json.dumps({"error": "No context. Run 'northstar init' first."})
 
-    tasks = await sm.get_tasks()
-    analyzer = GapAnalyzer(llm_client=llm)
-    gaps = await analyzer.analyze(tasks, ctx.goals)
+        tasks = await sm.get_tasks()
+        analyzer = GapAnalyzer(llm_client=llm)
+        gaps = await analyzer.analyze(tasks, ctx.goals)
 
-    return json.dumps(
-        [
-            {
-                "goal": g.goal_title,
-                "coverage": f"{g.coverage:.0%}",
-                "severity": g.severity,
-                "allocated_effort": g.allocated_effort,
-                "orphan_tasks": g.orphan_tasks,
-                "recommendations": g.recommendations,
-            }
-            for g in gaps
-        ],
-        indent=2,
-    )
+        return json.dumps(
+            [
+                {
+                    "goal": g.goal_title,
+                    "coverage": f"{g.coverage:.0%}",
+                    "severity": g.severity,
+                    "allocated_effort": g.allocated_effort,
+                    "orphan_tasks": g.orphan_tasks,
+                    "recommendations": g.recommendations,
+                }
+                for g in gaps
+            ],
+            indent=2,
+        )
+    except Exception as e:
+        logger.error("analyze_gaps failed: %s", e)
+        return json.dumps({"error": f"Gap analysis failed: {e}"})
 
 
 @tool
@@ -251,57 +270,61 @@ async def check_drift(current_task_id: str = "", session_minutes: float = 0.0) -
     if sm is None:
         return json.dumps({"error": "State manager not initialized"})
 
-    from northstar.analysis.leverage_ranker import LeverageRanker
-    from northstar.analysis.models import TaskStatus
-    from northstar.detection.drift_monitor import DriftMonitor
+    try:
+        from northstar.analysis.leverage_ranker import LeverageRanker
+        from northstar.analysis.models import TaskStatus
+        from northstar.detection.drift_monitor import DriftMonitor
 
-    ctx = await sm.load_context()
-    if ctx is None:
-        return json.dumps({"error": "No context. Run 'northstar init' first."})
+        ctx = await sm.load_context()
+        if ctx is None:
+            return json.dumps({"error": "No context. Run 'northstar init' first."})
 
-    tasks = await sm.get_tasks()
+        tasks = await sm.get_tasks()
 
-    # Find current task
-    current = None
-    if current_task_id:
-        current = next((t for t in tasks if t.id == current_task_id), None)
-    if current is None:
-        current = next(
-            (t for t in tasks if t.status == TaskStatus.IN_PROGRESS), None
-        )
-    if current is None:
-        return json.dumps({"status": "no_active_task", "message": "No task is currently in progress."})
+        # Find current task
+        current = None
+        if current_task_id:
+            current = next((t for t in tasks if t.id == current_task_id), None)
+        if current is None:
+            current = next(
+                (t for t in tasks if t.status == TaskStatus.IN_PROGRESS), None
+            )
+        if current is None:
+            return json.dumps({"status": "no_active_task", "message": "No task is currently in progress."})
 
-    # Build priority stack
-    llm = _llm()
-    ranker = LeverageRanker(config=cfg.scoring, llm_client=llm)
-    stack = await ranker.rank(tasks, ctx.goals)
+        # Build priority stack
+        llm = _llm()
+        ranker = LeverageRanker(config=cfg.scoring, llm_client=llm)
+        stack = await ranker.rank(tasks, ctx.goals)
 
-    monitor = DriftMonitor(config=cfg.drift, state_manager=sm)
-    alert = await monitor.check_drift(current, stack, session_minutes)
+        monitor = DriftMonitor(config=cfg.drift, state_manager=sm)
+        alert = await monitor.check_drift(current, stack, session_minutes)
 
-    if alert is None:
+        if alert is None:
+            return json.dumps(
+                {
+                    "status": "aligned",
+                    "message": f"You're on '{current.title}' — well aligned with priorities.",
+                    "current_leverage": round(current.leverage_score, 1),
+                }
+            )
+
         return json.dumps(
             {
-                "status": "aligned",
-                "message": f"You're on '{current.title}' — well aligned with priorities.",
-                "current_leverage": round(current.leverage_score, 1),
-            }
+                "status": "drift_detected",
+                "severity": alert.severity,
+                "drift_ratio": round(alert.drift_ratio, 2),
+                "current_task": alert.current_task_title,
+                "current_leverage": round(alert.current_leverage, 1),
+                "top_task": alert.top_task_title,
+                "top_leverage": round(alert.top_leverage, 1),
+                "message": alert.message,
+            },
+            indent=2,
         )
-
-    return json.dumps(
-        {
-            "status": "drift_detected",
-            "severity": alert.severity,
-            "drift_ratio": round(alert.drift_ratio, 2),
-            "current_task": alert.current_task_title,
-            "current_leverage": round(alert.current_leverage, 1),
-            "top_task": alert.top_task_title,
-            "top_leverage": round(alert.top_leverage, 1),
-            "message": alert.message,
-        },
-        indent=2,
-    )
+    except Exception as e:
+        logger.error("check_drift failed: %s", e)
+        return json.dumps({"error": f"Drift check failed: {e}"})
 
 
 @tool

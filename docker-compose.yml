@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  northstar:
+    build: .
+    ports:
+      - "8765:8765"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - northstar-data:/app/.northstar
+
+volumes:
+  northstar-data:

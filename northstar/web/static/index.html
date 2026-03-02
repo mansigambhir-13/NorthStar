@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NorthStar Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header class="container-fluid">
+        <nav>
+            <ul>
+                <li><strong>NorthStar</strong></li>
+            </ul>
+            <ul>
+                <li><a href="#" data-tab="dashboard" class="tab-link active">Dashboard</a></li>
+                <li><a href="#" data-tab="tasks" class="tab-link">Tasks</a></li>
+                <li><a href="#" data-tab="goals" class="tab-link">Goals</a></li>
+                <li><a href="#" data-tab="chat" class="tab-link">Chat</a></li>
+                <li><a href="#" data-tab="config" class="tab-link">Config</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+        <!-- Dashboard Tab -->
+        <section id="tab-dashboard" class="tab-content active">
+            <div id="drift-alert" class="alert alert-warning" style="display:none"></div>
+
+            <div class="grid">
+                <article id="pds-card">
+                    <header>Priority Debt Score</header>
+                    <div class="pds-display">
+                        <div id="pds-score" class="pds-score">--</div>
+                        <div id="pds-severity" class="pds-severity">--</div>
+                    </div>
+                    <p id="pds-diagnosis"></p>
+                </article>
+                <article>
+                    <header>Top 5 Priorities</header>
+                    <ol id="top-priorities"></ol>
+                </article>
+            </div>
+
+            <div class="grid">
+                <article>
+                    <header>PDS Trend</header>
+                    <canvas id="pds-chart" height="200"></canvas>
+                </article>
+                <article>
+                    <header>Task Leverage (Top 10)</header>
+                    <canvas id="leverage-chart" height="200"></canvas>
+                </article>
+            </div>
+
+            <div class="grid">
+                <article>
+                    <header>Goal Coverage</header>
+                    <canvas id="goals-chart" height="200"></canvas>
+                </article>
+                <article>
+                    <header>Recent Decisions</header>
+                    <div id="decisions-list"></div>
+                </article>
+            </div>
+
+            <div style="text-align:center;margin-top:1rem">
+                <button id="btn-analyze" class="outline">Run Full Analysis</button>
+            </div>
+        </section>
+
+        <!-- Tasks Tab -->
+        <section id="tab-tasks" class="tab-content">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                <h2>Tasks</h2>
+                <button id="btn-add-task" class="outline">+ Add Task</button>
+            </div>
+            <dialog id="add-task-dialog">
+                <article>
+                    <header>Add New Task</header>
+                    <form id="add-task-form">
+                        <label>Task Description
+                            <input type="text" id="task-desc-input" placeholder="Describe the task..." required>
+                        </label>
+                        <footer>
+                            <button type="button" class="secondary" onclick="document.getElementById('add-task-dialog').close()">Cancel</button>
+                            <button type="submit">Add & Rank</button>
+                        </footer>
+                    </form>
+                </article>
+            </dialog>
+            <table role="grid" id="tasks-table">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Title</th>
+                        <th>Leverage</th>
+                        <th>Goal</th>
+                        <th>Impact</th>
+                        <th>Effort (h)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="tasks-body"></tbody>
+            </table>
+        </section>
+
+        <!-- Goals Tab -->
+        <section id="tab-goals" class="tab-content">
+            <h2>Goals</h2>
+            <div id="goals-list" class="grid"></div>
+        </section>
+
+        <!-- Chat Tab -->
+        <section id="tab-chat" class="tab-content">
+            <h2>Agent Chat</h2>
+            <div id="chat-messages" class="chat-messages"></div>
+            <form id="chat-form" class="chat-form">
+                <div class="chat-input-row">
+                    <input type="text" id="chat-input" placeholder="Ask the NorthStar agent..." autocomplete="off">
+                    <button type="submit">Send</button>
+                </div>
+                <div class="quick-actions">
+                    <button type="button" class="outline secondary" data-action="What should I work on next?">Next task</button>
+                    <button type="button" class="outline secondary" data-action="Calculate PDS and summarize">PDS summary</button>
+                    <button type="button" class="outline secondary" data-action="Check for drift in my current work">Drift check</button>
+                    <button type="button" class="outline secondary" data-action="Analyze goal coverage gaps">Gap analysis</button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Config Tab -->
+        <section id="tab-config" class="tab-content">
+            <h2>Configuration</h2>
+            <article>
+                <pre id="config-display"></pre>
+                <footer>
+                    <button id="btn-reload-config" class="outline">Reload</button>
+                </footer>
+            </article>
+        </section>
+    </main>
+
+    <footer class="container-fluid">
+        <small>NorthStar Priority Debt Engine</small>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>
